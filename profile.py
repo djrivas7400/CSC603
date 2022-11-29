@@ -15,6 +15,12 @@ pc.defineParameter( "corecount",
                    portal.ParameterType.INTEGER, 4 )
 pc.defineParameter( "ramsize", "MB of RAM in each node (8192 or more).  NB: Make certain your requested cluster can supply this quantity.", 
                    portal.ParameterType.INTEGER, 8192 )
+pc.defineParameter( "registry_user", 
+                   "Docker registry user id.", 
+                   portal.ParameterType.STRING, 'admin' )
+pc.defineParameter( "registry_password", 
+                   "Docker registry user password.", 
+                   portal.ParameterType.STRING, 'password' )
 params = pc.bindParameters()
 
 request = pc.makeRequestRSpec()
@@ -47,13 +53,13 @@ for i in range(num_nodes):
   if i == 0:
     node = request.XenVM("head")
     bs_landing = node.Blockstore("bs_image", "/image")
-    bs_landing.size = "500GB"
+    bs_landing.size = "100GB"
   else:
     node = request.XenVM("worker-" + str(i))
   node.cores = params.corecount
   node.ram = params.ramsize
   bs_landing = node.Blockstore("bs_" + str(i), "/image")
-  bs_landing.size = "500GB"
+  bs_landing.size = "100GB"
   node.routable_control_ip = "true" 
   node.disk_image = "urn:publicid:IDN+emulab.net+image+emulab-ops:UBUNTU18-64-STD"
   iface = node.addInterface("if" + str(i))
@@ -74,5 +80,9 @@ for i in range(num_nodes):
     node.addService(pg.Execute(shell="sh", command="sudo bash /local/repository/install_helm.sh"))
   else:
     node.addService(pg.Execute(shell="sh", command="sudo bash /local/repository/kube_worker.sh"))
-    
+  
+  node.addService(pg.Execute(shell="sh", command="set -x; echo 'export DOCKER_USER=" + params.registry_user + "' | sudo tee -a /users/" + params.userid + "/docker-vars.sh"))
+  node.addService(pg.Execute(shell="sh", command="set -x; echo 'export DOCKER_PASSWORD=" + params.registry_password + "' | sudo tee -a /users/" + params.userid + "/docker-vars.sh"))
+  node.addService(pg.Execute(shell="sh", command="set -x; echo export DOCKER_REGISTRY=$(hostname -f)/docker-registry | sudo tee -a /users/" + params.userid + "/docker-vars.sh"))
+
 pc.printRequestRSpec(request)
